@@ -128,6 +128,66 @@ import { continueCode, continueCodeFindIt, continueCodeFixIt } from './routes/co
 import { ensureFileIsPassed, handleZipFileUpload, checkUploadSize, checkFileType, handleXmlUpload, handleYamlUpload } from './routes/fileUpload'
 
 const app = express()
+// --- BẮT ĐẦU ĐOẠN CODE CUSTOM CHO DỰ ÁN AI ---
+  const jwt = require('jsonwebtoken');
+
+  // 1. Lấy User ID
+  morgan.token('userId', function (req: any) {
+    try {
+      const authHeader = req.headers.authorization || (req.cookies && req.cookies.token ? `Bearer ${req.cookies.token}` : '');
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.substring(7);
+        const decoded: any = jwt.decode(token); 
+        if (decoded && decoded.data) {
+          return String(decoded.data.id); 
+        }
+      }
+    } catch (e) {}
+    return 'Guest'; 
+  });
+
+  // 2. Lấy Role
+  morgan.token('userRole', function (req: any) {
+    try {
+      const authHeader = req.headers.authorization || (req.cookies && req.cookies.token ? `Bearer ${req.cookies.token}` : '');
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.substring(7);
+        const decoded: any = jwt.decode(token);
+        if (decoded && decoded.data) {
+          if (decoded.data.role) return decoded.data.role;
+          if (decoded.data.email && String(decoded.data.email).includes('admin')) return 'Admin';
+          return 'Customer';
+        }
+      }
+    } catch (e) {}
+    return 'Guest';
+  });
+
+  // 3. Ghi lại Body Keys để bắt IDOR
+  morgan.token('reqBodyKeys', function (req: any) {
+      if (req.body && Object.keys(req.body).length > 0) {
+          return JSON.stringify(Object.keys(req.body));
+      }
+      return 'none';
+  });
+
+  // 4. Tạo file log
+  const aiLogStream = fs.createWriteStream(path.join(process.cwd(), 'ai_access.log'), { flags: 'a' });
+
+  const aiLogFormat = JSON.stringify({
+    timestamp: ':date[iso]',
+    ip: ':remote-addr',
+    method: ':method',
+    url: ':url',
+    status: ':status',
+    userId: ':userId',
+    role: ':userRole',
+    bodyKeys: ':reqBodyKeys',
+    responseTimeMs: ':response-time'
+  });
+
+  app.use(morgan(aiLogFormat, { stream: aiLogStream }));
+  // --- KẾT THÚC ĐOẠN CODE CUSTOM ---
 const server = new http.Server(app)
 
 // errorhandler requires us from overwriting a string property on it's module which is a big no-no with esmodules :/
