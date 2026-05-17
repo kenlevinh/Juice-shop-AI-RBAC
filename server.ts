@@ -166,7 +166,7 @@ const app = express()
   // 3. Ghi lại Body Keys để bắt IDOR
   morgan.token('reqBodyKeys', function (req: any) {
       if (req.body && Object.keys(req.body).length > 0) {
-          return Object.keys(req.body).join(',');
+          return JSON.stringify(Object.keys(req.body));
       }
       return 'none';
   });
